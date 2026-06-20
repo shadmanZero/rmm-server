@@ -19,6 +19,12 @@
   box-sizing: border-box;
 }
 
+/* The `hidden` attribute must always win, even over the flex display rules below
+   (otherwise the viewer panel and the device list show at the same time). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -102,8 +108,8 @@ body {
   box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.18);
 }
 
-/* Views */
-.view {
+/* Home page */
+.page {
   flex: 1;
   width: 100%;
   max-width: 1100px;
@@ -111,19 +117,19 @@ body {
   padding: 26px 22px 40px;
 }
 
-.view__head {
+.page__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
 }
 
-.view__head h2 {
+.page__head h2 {
   margin: 0;
   font-size: 20px;
 }
 
-.view__head-right {
+.page__head-right {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -282,38 +288,32 @@ body {
   color: var(--text);
 }
 
-/* Viewer */
-.view--viewer {
-  max-width: none;
-  margin: 0;
-  padding: 0;
+/* Viewer page — its own full-height layout (separate page, no overlap with home) */
+.viewer-body {
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 67px);
+  overflow: hidden;
 }
 
-.viewer__bar {
+.topbar--viewer {
+  position: static;
+  flex: 0 0 auto;
+}
+
+.viewer__left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  padding: 10px 16px;
-  background: var(--bg-elev);
-  border-bottom: 1px solid var(--border);
-}
-
-.viewer__title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
   min-width: 0;
 }
 
-.viewer__title #viewer-name {
+.viewer__name {
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 40vw;
 }
 
 .viewer__actions {
@@ -353,6 +353,7 @@ body {
 
 .screen {
   flex: 1;
+  min-height: 0;
   background: #000;
   overflow: hidden;
   display: flex;
