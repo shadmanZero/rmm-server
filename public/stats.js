@@ -113,12 +113,19 @@ export function createNetStats() {
   function install() {
     if (installed) return;
     installed = true;
-    const SniffingWebSocket = class extends OriginalWebSocket {
-      constructor(...args) {
-        super(...args);
-        this.addEventListener("message", (ev) => onInbound(inboundLength(ev.data)));
-      }
-      send(data) {
+    // IMPORTANT: do NOT `class extends WebSocket`. noVNC's `Websock.attach()`
+    // validates the channel by inspecting only the instance's *immediate* prototype
+    // (`Object.getPrototypeOf(channel)`). A subclass inserts an extra prototype level
+    // whose own names are just `constructor`/`send`, hiding WebSocket.prototype's
+    // `close`/`binaryType`/… from that one-level check — so noVNC throws
+    // "Raw channel missing property: close" and the RFB session never starts (a black
+    // screen stuck on "connecting…"). Instead return a REAL WebSocket and patch the
+    // instance, leaving the prototype chain exactly as noVNC expects.
+    const nativeSend = OriginalWebSocket.prototype.send;
+    function SniffingWebSocket(...args) {
+      const ws = new OriginalWebSocket(...args);
+      ws.addEventListener("message", (ev) => onInbound(inboundLength(ev.data)));
+      ws.send = function (data) {
         const bytes = toBytes(data);
         if (bytes) {
           try {
@@ -127,9 +134,15 @@ export function createNetStats() {
             /* never let instrumentation break the session */
           }
         }
-        super.send(data);
-      }
-    };
+        return nativeSend.call(ws, data);
+      };
+      return ws; // a genuine WebSocket: its prototype is WebSocket.prototype
+    }
+    // Keep `instanceof` and the readyState constants working for any caller.
+    SniffingWebSocket.prototype = OriginalWebSocket.prototype;
+    for (const k of ["CONNECTING", "OPEN", "CLOSING", "CLOSED"]) {
+      SniffingWebSocket[k] = OriginalWebSocket[k];
+    }
     window.WebSocket = SniffingWebSocket;
   }
 

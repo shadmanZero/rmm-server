@@ -20,6 +20,9 @@ import type { Session } from "../registry";
 
 const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
 
+/** Verbose byte-ledger tracing toggle (env `RACKOONA_DEBUG`), matching the agent. */
+const DEBUG = !!process.env.RACKOONA_DEBUG && process.env.RACKOONA_DEBUG !== "0";
+
 type Role = "agent" | "viewer";
 
 /** Validate the session token + role at upgrade, then attach the socket. */
@@ -66,19 +69,29 @@ function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): 
   const peerBuffer = (): Buffer[] =>
     role === "agent" ? session.bufferToViewer : session.bufferToAgent;
 
+  const otherRole = role === "agent" ? "viewer" : "agent";
+
   ws.on("message", (data: RawData) => {
     const chunk = toBuffer(data);
     const peer = peerSocket();
-    if (peer && peer.readyState === WebSocket.OPEN) {
-      peer.send(chunk, { binary: true });
+    const forwarded = !!peer && peer.readyState === WebSocket.OPEN;
+    if (forwarded) {
+      peer!.send(chunk, { binary: true });
     } else {
       // Peer not here yet — hold the bytes until pairing flushes them.
       peerBuffer().push(chunk);
     }
+    if (DEBUG) {
+      logger.info(
+        `relay ${session.session_id}: ${role}->${otherRole} ${chunk.length}B ${forwarded ? "forwarded" : "BUFFERED(peer absent)"}`,
+      );
+    }
   });
 
-  ws.on("close", () => {
-    logger.info(`relay ${session.session_id}: ${role} closed`);
+  ws.on("close", (code: number, reason: Buffer) => {
+    logger.info(
+      `relay ${session.session_id}: ${role} closed code=${code} reason=${reason?.toString() || ""}`,
+    );
     const peer = peerSocket();
     if (peer) {
       try {
@@ -109,6 +122,10 @@ function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): 
 }
 
 function flush(buffer: Buffer[], target: WebSocket | undefined): void {
+  if (DEBUG) {
+    const bytes = buffer.reduce((n, c) => n + c.length, 0);
+    logger.info(`relay flush -> ${target ? "open" : "no-target"}: ${buffer.length} chunks, ${bytes}B`);
+  }
   if (!target || target.readyState !== WebSocket.OPEN) {
     buffer.length = 0;
     return;

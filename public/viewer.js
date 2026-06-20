@@ -5,9 +5,14 @@
 // disconnect) returns to the device list. noVNC is vendored under /vendor/novnc.
 
 import RFB from "/vendor/novnc/core/rfb.js";
+import * as Log from "/vendor/novnc/core/util/logging.js";
 import { createNetStats } from "/stats.js";
 
 const params = new URLSearchParams(location.search);
+// Open the viewer with `&debug` to turn on noVNC's internal RFB tracing in the
+// browser console (handshake steps, rectangle decode, disconnect reasons) — pairs
+// with the agent's RACKOONA_DEBUG trace for an end-to-end picture.
+if (params.has("debug")) Log.initLogging("debug");
 const deviceId = params.get("device");
 const deviceName = params.get("name") || "device";
 
@@ -134,11 +139,15 @@ async function start() {
   rfb.focusOnClick = true;
 
   rfb.addEventListener("connect", () => {
+    console.info("[viewer] noVNC connected (ServerInit received)");
     setState("connected", "ok");
     startStats();
   });
   rfb.addEventListener("disconnect", (e) => {
     const clean = e.detail && e.detail.clean;
+    // clean=false right after connecting (or before any "connect") is the
+    // black-screen-retry signature: noVNC got far enough then hit a bad frame.
+    console.warn("[viewer] noVNC disconnect clean=", clean, e.detail);
     setState(clean ? "disconnected" : "connection lost", "bad");
     if (!clean) showToast("Connection closed by the remote end.", true);
     stopStats();
