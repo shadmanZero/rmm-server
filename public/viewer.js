@@ -5,6 +5,7 @@
 // disconnect) returns to the device list. noVNC is vendored under /vendor/novnc.
 
 import RFB from "/vendor/novnc/core/rfb.js";
+import { createNetStats } from "/stats.js";
 
 const params = new URLSearchParams(location.search);
 const deviceId = params.get("device");
@@ -18,9 +19,20 @@ const els = {
   cadBtn: document.getElementById("cad-btn"),
   disconnectBtn: document.getElementById("disconnect-btn"),
   toast: document.getElementById("toast"),
+  stats: document.getElementById("viewer-stats"),
+  statLatency: document.getElementById("stat-latency"),
+  statLatencyVal: document.getElementById("stat-latency-val"),
+  statFpsVal: document.getElementById("stat-fps-val"),
+  statNetVal: document.getElementById("stat-net-val"),
+  statResVal: document.getElementById("stat-res-val"),
 };
 
 let rfb = null;
+
+// Network stats: install the WebSocket sniffer now, before noVNC opens its socket.
+const netStats = createNetStats();
+netStats.install();
+let statsTimer = null;
 
 els.name.textContent = deviceName;
 
@@ -41,6 +53,8 @@ function goHome() {
 }
 
 function teardown() {
+  stopStats();
+  netStats.uninstall();
   if (rfb) {
     try {
       rfb.disconnect();
@@ -49,6 +63,43 @@ function teardown() {
     }
     rfb = null;
   }
+}
+
+// --- Network stats HUD -------------------------------------------------------
+
+function startStats() {
+  els.stats.hidden = false;
+  if (statsTimer) return;
+  renderStats(netStats.sample());
+  statsTimer = setInterval(() => renderStats(netStats.sample()), 1000);
+}
+
+function stopStats() {
+  if (statsTimer) {
+    clearInterval(statsTimer);
+    statsTimer = null;
+  }
+}
+
+function renderStats(s) {
+  els.statLatencyVal.textContent = s.latencyMs == null ? "—" : `${Math.round(s.latencyMs)}ms`;
+  els.statLatency.className = `stat stat--${latencyKind(s.latencyMs)}`;
+  els.statFpsVal.textContent = s.fps >= 0.05 ? s.fps.toFixed(0) : "0";
+  els.statNetVal.textContent = formatRate(s.kbps);
+  const canvas = els.screen.querySelector("canvas");
+  els.statResVal.textContent = canvas ? `${canvas.width}×${canvas.height}` : "—";
+}
+
+function latencyKind(ms) {
+  if (ms == null) return "idle";
+  if (ms < 80) return "ok";
+  if (ms < 180) return "warn";
+  return "bad";
+}
+
+function formatRate(kbps) {
+  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
+  return `${kbps.toFixed(0)} KB/s`;
 }
 
 async function start() {
@@ -82,11 +133,15 @@ async function start() {
   rfb.clipViewport = els.scaleToggle.checked;
   rfb.focusOnClick = true;
 
-  rfb.addEventListener("connect", () => setState("connected", "ok"));
+  rfb.addEventListener("connect", () => {
+    setState("connected", "ok");
+    startStats();
+  });
   rfb.addEventListener("disconnect", (e) => {
     const clean = e.detail && e.detail.clean;
     setState(clean ? "disconnected" : "connection lost", "bad");
     if (!clean) showToast("Connection closed by the remote end.", true);
+    stopStats();
     rfb = null;
   });
   rfb.addEventListener("securityfailure", (e) => {

@@ -351,6 +351,75 @@ body {
   user-select: none;
 }
 
+/* Network stats HUD */
+.viewer__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer__stats[hidden] {
+  display: none;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+.stat__unit {
+  color: var(--off);
+  font-weight: 400;
+}
+
+.stat__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--off);
+}
+
+/* Latency colour-codes the whole chip + its dot. */
+.stat--ok {
+  color: var(--ok);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+.stat--ok .stat__dot {
+  background: var(--ok);
+}
+.stat--warn {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+.stat--warn .stat__dot {
+  background: #fbbf24;
+}
+.stat--bad {
+  color: var(--danger);
+  border-color: rgba(244, 63, 94, 0.35);
+}
+.stat--bad .stat__dot {
+  background: var(--danger);
+}
+
+@media (max-width: 720px) {
+  /* Keep latency + fps on small screens; drop the bulkier chips. */
+  #stat-net,
+  #stat-res {
+    display: none;
+  }
+}
+
 .screen {
   flex: 1;
   min-height: 0;

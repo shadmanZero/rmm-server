@@ -13,6 +13,20 @@
         <a class="btn btn--ghost" href="/">← Devices</a>
         <span id="viewer-name" class="viewer__name">device</span>
         <span id="viewer-state" class="pill">connecting…</span>
+        <span id="viewer-stats" class="viewer__stats" hidden>
+          <span class="stat" id="stat-latency" title="Round-trip latency (request → first response)">
+            <span class="stat__dot"></span><span id="stat-latency-val">—</span>
+          </span>
+          <span class="stat" id="stat-fps" title="Frames received per second">
+            <span id="stat-fps-val">—</span><span class="stat__unit">fps</span>
+          </span>
+          <span class="stat" id="stat-net" title="Inbound bandwidth">
+            <span id="stat-net-val">—</span>
+          </span>
+          <span class="stat" id="stat-res" title="Remote framebuffer resolution">
+            <span id="stat-res-val">—</span>
+          </span>
+        </span>
       </div>
       <div class="viewer__actions">
         <label class="toggle">
