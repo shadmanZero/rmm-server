@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>rackoona · remote desktops</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366f1'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='white' font-family='monospace'%3ER%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark">R</span>
+        <div>
+          <h1>rackoona</h1>
+          <p>remote desktops</p>
+        </div>
+      </div>
+      <div class="topbar__status">
+        <span id="conn-dot" class="dot dot--ok"></span>
+        <span id="conn-text">connected to control plane</span>
+      </div>
+    </header>
+
+    <!-- Device list -->
+    <main id="list-view" class="view">
+      <div class="view__head">
+        <h2>Devices</h2>
+        <div class="view__head-right">
+          <span id="device-count" class="muted">—</span>
+          <button id="refresh-btn" class="btn btn--ghost" type="button">Refresh</button>
+        </div>
+      </div>
+      <div id="devices" class="devices"></div>
+      <div id="empty" class="empty" hidden>
+        <h3>No devices yet</h3>
+        <p>
+          Run the agent and point it at this server:<br />
+          <code id="connect-hint">agent connect --server http://localhost:4000</code>
+        </p>
+      </div>
+    </main>
+
+    <!-- noVNC viewer -->
+    <section id="viewer-view" class="view view--viewer" hidden>
+      <div class="viewer__bar">
+        <button id="back-btn" class="btn btn--ghost" type="button">← Devices</button>
+        <div class="viewer__title">
+          <span id="viewer-name">device</span>
+          <span id="viewer-state" class="pill">connecting…</span>
+        </div>
+        <div class="viewer__actions">
+          <label class="toggle">
+            <input id="scale-toggle" type="checkbox" checked />
+            <span>Fit</span>
+          </label>
+          <button id="cad-btn" class="btn btn--ghost" type="button" title="Send Ctrl+Alt+Del">Ctrl+Alt+Del</button>
+          <button id="disconnect-btn" class="btn btn--danger" type="button">Disconnect</button>
+        </div>
+      </div>
+      <div id="screen" class="screen"></div>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

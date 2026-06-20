@@ -1,0 +1,17 @@
+# Local container run. For EasyPanel, point it at the Dockerfile (see README).
+services:
+  rackoona:
+    build: .
+    image: rackoona-server:latest
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      TRUST_PROXY: "true"
+      # Set this to your public domain in production so emitted URLs use wss://:
+      # PUBLIC_URL: "https://rmm.example.com"
+      HEARTBEAT_INTERVAL: "25"
+      SESSION_TTL: "60"
+      TENANT_ID: "default"
+    restart: unless-stopped

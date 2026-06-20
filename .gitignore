@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+.env
+.DS_Store
+
+# Vendored at install time from @novnc/novnc (npm run vendor:novnc)
+public/vendor/novnc/

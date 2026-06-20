@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+.env
+npm-debug.log*
+
+# Regenerated in the build stage from node_modules/@novnc
+public/vendor/novnc
+
+# Docs / local-only
+README.md
+docker-compose.yml
