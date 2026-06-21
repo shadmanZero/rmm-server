@@ -32,7 +32,11 @@ async function loadDevices() {
 
 function setControlPlaneStatus(ok) {
   els.connDot.className = `dot ${ok ? "dot--ok" : "dot--bad"}`;
-  els.connText.textContent = ok ? "connected to control plane" : "control plane unreachable";
+  els.connText.textContent = ok ? "Connected" : "Offline";
+  // Healthy state stays quiet (faint label, colour only on the dot); a lost
+  // control plane tints the label red so the problem actually draws the eye.
+  els.connText.classList.toggle("text-faint", ok);
+  els.connText.classList.toggle("text-danger", !ok);
 }
 
 function renderDevices(devices) {
