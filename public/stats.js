@@ -50,7 +50,8 @@ export function createNetStats() {
   const state = {
     inBytes: 0, // inbound bytes since last sample
     totalIn: 0, // inbound bytes for the whole session
-    frames: 0, // FramebufferUpdateRequests since last sample (≈ frames)
+    frames: 0, // FramebufferUpdateRequests since last sample (request-based FPS)
+    rendered: 0, // frames noVNC actually rendered (Display.flip) since last sample
     pendingReqAt: null, // perf time of the oldest unanswered request
     latencyMs: null, // smoothed round-trip latency
   };
@@ -158,16 +159,27 @@ export function createNetStats() {
     const now = performance.now();
     const dt = Math.max((now - lastSampleAt) / 1000, 1e-3);
     lastSampleAt = now;
+    // Prefer the count of frames noVNC actually *rendered* — that works in the agent's
+    // continuous/push mode (where noVNC sends no per-frame request, so the request
+    // count is ~0). Fall back to the request count if the render hook isn't installed.
+    const frames = state.rendered > 0 ? state.rendered : state.frames;
     const out = {
-      fps: state.frames / dt,
+      fps: frames / dt,
       kbps: state.inBytes / 1024 / dt,
       latencyMs: state.latencyMs,
       totalBytes: state.totalIn,
     };
     state.frames = 0;
+    state.rendered = 0;
     state.inBytes = 0;
     return out;
   }
 
-  return { install, uninstall, sample };
+  /// Record one rendered frame (called from noVNC's `Display.flip` hook). This is the
+  /// FPS source that survives continuous/push mode.
+  function recordFrame() {
+    state.rendered += 1;
+  }
+
+  return { install, uninstall, sample, recordFrame };
 }
