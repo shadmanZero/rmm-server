@@ -179,6 +179,18 @@
       font-mono text-[11px] leading-5 text-muted;
   }
 
+  /* ---- Filter chips (logs level toggles) ------------------------------ */
+  .chip {
+    @apply cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium
+      text-faint transition-colors duration-150 select-none;
+  }
+  .chip:hover {
+    @apply text-content;
+  }
+  .chip[aria-pressed="true"] {
+    @apply bg-surface text-content;
+  }
+
   /* ---- Pills (viewer connection state) -------------------------------- */
   .pill {
     @apply inline-flex items-center rounded-full border border-border px-2.5 py-1

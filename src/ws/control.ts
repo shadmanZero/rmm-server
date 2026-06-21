@@ -11,7 +11,7 @@ import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { clientIp } from "../ip";
-import { logger } from "../log";
+import { ingest, logger } from "../log";
 import * as registry from "../registry";
 import type { Device } from "../registry";
 
@@ -106,6 +106,17 @@ function handleMessage(device: Device, raw: string): void {
       );
       break;
     case "pong":
+      break;
+    case "log":
+      // Agent-forwarded trace/log line → merge into the live `/logs` stream under
+      // the device's name so operators can debug the endpoint from the dashboard.
+      if (typeof msg.message === "string") {
+        ingest({
+          level: msg.level,
+          source: device.device_name || device.device_id,
+          message: msg.message,
+        });
+      }
       break;
     default:
       // Forward-compat: ignore unknown agent message types.

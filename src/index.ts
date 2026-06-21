@@ -32,6 +32,7 @@ import { loadAuth, requireApiAuth, requirePageAuth } from "./auth/middleware";
 import { pruneExpiredSessions } from "./auth/sessions";
 import { handleControlUpgrade } from "./ws/control";
 import { handleRelayUpgrade } from "./ws/relay";
+import { handleLogsUpgrade } from "./ws/logs";
 
 const app = express();
 app.disable("x-powered-by");
@@ -66,6 +67,7 @@ const sendPage =
     res.sendFile(path.join(publicDir, file));
 app.get(["/", "/index.html"], pageAuth, sendPage("index.html"));
 app.get("/viewer.html", pageAuth, sendPage("viewer.html"));
+app.get("/logs.html", pageAuth, sendPage("logs.html"));
 
 // Static assets (login page, styles, scripts, vendored noVNC). `index: false` so the
 // directory's index.html is never served unauthenticated at "/".
@@ -90,6 +92,8 @@ server.on("upgrade", (req, socket, head) => {
     handleControlUpgrade(req, socket, head);
   } else if (pathname.startsWith("/relay/")) {
     handleRelayUpgrade(req, socket, head, pathname, query);
+  } else if (pathname === "/admin/logs") {
+    void handleLogsUpgrade(req, socket, head);
   } else {
     socket.destroy();
   }
