@@ -15,7 +15,27 @@ import { ingest, logger } from "../log";
 import * as registry from "../registry";
 import type { Device } from "../registry";
 
-const wss = new WebSocketServer({ noServer: true });
+// Control frames are small JSON; cap the payload as cheap abuse/defense-in-depth.
+const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
+
+/**
+ * Low-latency + dead-peer detection on the underlying TCP socket: disable Nagle so
+ * small control frames ship immediately (no 40-200ms Nagle/delayed-ACK stall), and
+ * enable TCP keep-alive so a vanished agent is noticed in ~30-60s rather than the OS
+ * default (often hours).
+ */
+function tuneSocket(ws: WebSocket): void {
+  // `ws._socket` is undocumented but stable since ws@3; guarded so a not-yet-attached
+  // socket is just a no-op.
+  const sock = (ws as unknown as { _socket?: import("net").Socket })._socket;
+  if (!sock) return;
+  try {
+    sock.setNoDelay(true);
+    sock.setKeepAlive(true, 30_000);
+  } catch {
+    /* socket already closing */
+  }
+}
 
 /** Messages the server sends down to an agent (`RMM/docs/09` §3.2). */
 export type ServerToAgent =
@@ -54,6 +74,7 @@ export function handleControlUpgrade(req: IncomingMessage, socket: Duplex, head:
 }
 
 function onConnection(ws: WebSocket, device: Device, ip: string): void {
+  tuneSocket(ws);
   // A reconnect supersedes any stale socket for the same device.
   if (device.control && device.control !== ws) {
     try {
@@ -113,12 +134,14 @@ function handleMessage(device: Device, raw: string): void {
     case "pong":
       break;
     case "log":
-      // Agent-forwarded trace/log line → merge into the live `/logs` stream under
-      // the device's name so operators can debug the endpoint from the dashboard.
+      // Agent-forwarded trace/log line → merge into the live `/logs` stream tagged with
+      // the device's display name AND its stable id, so operators can debug a specific
+      // endpoint from the dashboard and filter by PC even across hostname changes.
       if (typeof msg.message === "string") {
         ingest({
           level: msg.level,
           source: device.device_name || device.device_id,
+          deviceId: device.device_id,
           message: msg.message,
         });
       }

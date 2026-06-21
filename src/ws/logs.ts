@@ -54,8 +54,17 @@ type Outbound =
   | { type: "backlog"; entries: readonly LogEntry[] }
   | { type: "log"; entry: LogEntry };
 
+/**
+ * Drop live log lines once a tail's outbound buffer exceeds this — a dashboard on a
+ * slow link (or many reconnecting at once after an outage) must never balloon the
+ * server's memory. The one-shot backlog is always sent; only the unbounded live stream
+ * is shed.
+ */
+const DROP_ABOVE_BYTES = 1 * 1024 * 1024;
+
 function send(ws: WebSocket, message: Outbound): void {
   if (ws.readyState !== WebSocket.OPEN) return;
+  if (message.type === "log" && ws.bufferedAmount > DROP_ABOVE_BYTES) return;
   try {
     ws.send(JSON.stringify(message));
   } catch {

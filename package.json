@@ -13,6 +13,7 @@
     "start": "node dist/index.js",
     "dev": "node scripts/vendor-novnc.js && npm run build:css && tsx watch src/index.ts",
     "typecheck": "tsc -p . --noEmit",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "db:pull": "drizzle-kit pull",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

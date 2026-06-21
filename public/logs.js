@@ -12,6 +12,7 @@ const els = {
   connState: document.getElementById("conn-state"),
   counts: document.getElementById("counts"),
   levelFilter: document.getElementById("level-filter"),
+  kindFilter: document.getElementById("kind-filter"),
   sourceFilter: document.getElementById("source-filter"),
   search: document.getElementById("search"),
   pauseBtn: document.getElementById("pause-btn"),
@@ -39,13 +40,27 @@ const state = {
   /** Entries received while paused, flushed on resume. */
   pendingWhilePaused: [],
   activeLevels: new Set(["trace", "info", "warn", "error"]),
-  source: "",
+  /** Origin filter: which of server / agent are shown. */
+  activeKinds: new Set(["server", "agent"]),
+  /** Selected PC (stable device id), or "" for all PCs. */
+  deviceKey: "",
   search: "",
   paused: false,
   /** Follow the tail (auto-scroll) while the user is at the bottom. */
   follow: true,
-  knownSources: new Set(),
+  /** Stable device key → latest display label, for the PC dropdown. */
+  knownDevices: new Map(),
 };
+
+/** Origin of an entry; defensive against any pre-upgrade buffered line lacking `kind`. */
+function entryKind(entry) {
+  return entry.kind || (entry.deviceId ? "agent" : "server");
+}
+
+/** Stable PC filter key for an agent entry (device id, falling back to its label). */
+function entryDeviceKey(entry) {
+  return entry.deviceId || entry.source;
+}
 
 // ── WebSocket with reconnect/backoff ───────────────────────────────────
 let ws = null;
@@ -106,15 +121,13 @@ function addEntry(entry, live) {
   state.entries.push(entry);
   if (state.entries.length > MAX_LINES) state.entries.shift();
 
-  if (!state.knownSources.has(entry.source)) {
-    state.knownSources.add(entry.source);
-    addSourceOption(entry.source);
-  }
+  if (entryKind(entry) === "agent") registerDevice(entry);
 
   if (live) {
     if (state.paused) {
       state.pendingWhilePaused.push(entry);
       updatePauseCount();
+      updateCounts();
       return;
     }
     appendRow(entry);
@@ -124,7 +137,16 @@ function addEntry(entry, live) {
 
 function matches(entry) {
   if (!state.activeLevels.has(entry.level)) return false;
-  if (state.source && entry.source !== state.source) return false;
+  const kind = entryKind(entry);
+  if (state.deviceKey) {
+    // A specific PC is selected → show exactly that endpoint's lines; the origin chips
+    // don't apply (selecting a PC already implies "agent", and the chips can't refine a
+    // single device). This avoids the trap where deselecting "agents" would hide the very
+    // PC the operator just picked.
+    if (!(kind === "agent" && entryDeviceKey(entry) === state.deviceKey)) return false;
+  } else if (!state.activeKinds.has(kind)) {
+    return false;
+  }
   if (state.search && !entry.message.toLowerCase().includes(state.search)) return false;
   return true;
 }
@@ -141,6 +163,7 @@ function appendRow(entry) {
 }
 
 function rowEl(entry) {
+  const kind = entryKind(entry);
   const row = document.createElement("div");
   row.className = "flex gap-2.5 whitespace-pre-wrap break-words py-px";
 
@@ -148,20 +171,28 @@ function rowEl(entry) {
   time.className = "shrink-0 text-faint tabular-nums";
   time.textContent = formatTime(entry.ts);
 
+  // Origin badge: SRV (control plane, neutral) vs PC (endpoint, accent) so server and
+  // agent lines are distinguishable at a glance, independent of the source label.
+  const origin = document.createElement("span");
+  origin.className = `shrink-0 w-10 rounded text-center text-[10px] font-bold uppercase ${
+    kind === "server" ? "bg-surface-2 text-muted" : "bg-accent/15 text-accent"
+  }`;
+  origin.textContent = kind === "server" ? "srv" : "pc";
+
   const level = document.createElement("span");
   level.className = `shrink-0 w-12 font-semibold uppercase ${LEVEL_CLASS[entry.level] || "text-muted"}`;
   level.textContent = entry.level;
 
   const source = document.createElement("span");
-  source.className = "shrink-0 max-w-[10rem] truncate text-accent/80";
+  source.className = `shrink-0 max-w-[10rem] truncate ${kind === "server" ? "text-muted" : "text-accent/80"}`;
   source.textContent = entry.source;
-  source.title = entry.source;
+  source.title = entry.deviceId ? `${entry.source} (${entry.deviceId})` : entry.source;
 
   const message = document.createElement("span");
   message.className = "min-w-0 text-content/90";
   message.textContent = entry.message;
 
-  row.append(time, level, source, message);
+  row.append(time, origin, level, source, message);
   return row;
 }
 
@@ -186,11 +217,33 @@ function updateCounts() {
   els.counts.textContent = `${state.entries.length} line${state.entries.length === 1 ? "" : "s"}`;
 }
 
-function addSourceOption(source) {
+/** Register an agent's PC in the dropdown, keyed on its stable device id. Adds a new
+ *  option, or refreshes the label if the endpoint was renamed mid-session. */
+function registerDevice(entry) {
+  const key = entryDeviceKey(entry);
+  if (!key) return;
+  const label = entry.source || key;
+  if (state.knownDevices.get(key) === label) return; // already shown with this label
+  const isNew = !state.knownDevices.has(key);
+  state.knownDevices.set(key, label);
+  if (isNew) addSourceOption(key, label);
+  else updateSourceOption(key, label);
+}
+
+function findOption(key) {
+  return Array.from(els.sourceFilter.options).find((o) => o.value === key);
+}
+
+function addSourceOption(key, label) {
   const opt = document.createElement("option");
-  opt.value = source;
-  opt.textContent = source;
+  opt.value = key;
+  opt.textContent = label;
   els.sourceFilter.appendChild(opt);
+}
+
+function updateSourceOption(key, label) {
+  const opt = findOption(key);
+  if (opt) opt.textContent = label;
 }
 
 // ── Pause / resume ─────────────────────────────────────────────────────
@@ -248,8 +301,18 @@ els.levelFilter.addEventListener("click", (ev) => {
   flushRender();
 });
 
+els.kindFilter.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("[data-kind]");
+  if (!btn) return;
+  const kind = btn.dataset.kind;
+  if (state.activeKinds.has(kind)) state.activeKinds.delete(kind);
+  else state.activeKinds.add(kind);
+  btn.setAttribute("aria-pressed", String(state.activeKinds.has(kind)));
+  flushRender();
+});
+
 els.sourceFilter.addEventListener("change", () => {
-  state.source = els.sourceFilter.value;
+  state.deviceKey = els.sourceFilter.value;
   flushRender();
 });
 
@@ -263,6 +326,15 @@ els.pauseBtn.addEventListener("click", togglePause);
 els.clearBtn.addEventListener("click", () => {
   state.entries = [];
   state.pendingWhilePaused = [];
+  // Drop the learned PC list + its dropdown options (keep the "All PCs" sentinel) and
+  // reset the selection, so a cleared view doesn't keep stale endpoints around.
+  state.knownDevices = new Map();
+  while (els.sourceFilter.options.length > 1) els.sourceFilter.remove(1);
+  els.sourceFilter.value = "";
+  state.deviceKey = "";
+  // Clearing while paused would otherwise leave the button stuck on "Resume" and
+  // silently re-accumulate a pending backlog against an empty view.
+  if (state.paused) togglePause();
   updatePauseCount();
   els.list.replaceChildren();
   els.empty.hidden = false;

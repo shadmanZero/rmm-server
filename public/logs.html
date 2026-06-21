@@ -52,8 +52,20 @@
           <button class="chip" data-level="error" type="button" aria-pressed="true">error</button>
         </div>
 
-        <select id="source-filter" class="field w-auto py-1.5 text-xs" aria-label="Filter by source">
-          <option value="">All sources</option>
+        <!-- Origin filter: server (control plane) vs agent (endpoints) -->
+        <div
+          id="kind-filter"
+          class="flex items-center gap-1 rounded-lg border border-border bg-surface-2 p-1"
+          role="group"
+          aria-label="Filter by origin"
+        >
+          <button class="chip" data-kind="server" type="button" aria-pressed="true">server</button>
+          <button class="chip" data-kind="agent" type="button" aria-pressed="true">agents</button>
+        </div>
+
+        <!-- PC filter: keyed on stable device id, populated as endpoints appear -->
+        <select id="source-filter" class="field w-auto py-1.5 text-xs" aria-label="Filter by PC">
+          <option value="">All PCs</option>
         </select>
 
         <input

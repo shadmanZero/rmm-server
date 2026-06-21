@@ -41,6 +41,16 @@ const BACKPRESSURE_HIGH = 8 * 1024 * 1024;
 const BACKPRESSURE_LOW = 1 * 1024 * 1024;
 const BACKPRESSURE_POLL_MS = 50;
 
+/**
+ * Hard cap on bytes held for a peer that hasn't connected yet. The forwarding path is
+ * already memory-bounded (we pause the source above {@link BACKPRESSURE_HIGH}), but the
+ * pre-pairing buffer is not. In the current protocol the RFB server only streams after
+ * the viewer handshakes, so this should never engage — it's defense-in-depth against a
+ * peer that never arrives. On overflow we close the (doomed) session rather than corrupt
+ * the byte stream by dropping from the middle of it.
+ */
+const MAX_PREPAIR_BYTES = 64 * 1024 * 1024;
+
 type Role = "agent" | "viewer";
 
 /** Validate the session token + role at upgrade, then attach the socket. */
@@ -78,6 +88,7 @@ export function handleRelayUpgrade(
 
 function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): void {
   ws.binaryType = "nodebuffer";
+  tuneSocket(ws);
   if (role === "agent") session.agent = ws;
   else session.viewer = ws;
   logger.info(`relay ${session.session_id}: ${role} connected from ${ip}`);
@@ -89,6 +100,10 @@ function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): 
 
   const otherRole = role === "agent" ? "viewer" : "agent";
 
+  // Running size of the pre-pairing buffer THIS socket feeds (only this socket writes to
+  // it), so the overflow check is O(1) per message instead of re-summing the array.
+  let prePairBytes = 0;
+
   ws.on("message", (data: RawData) => {
     const chunk = toBuffer(data);
     const peer = peerSocket();
@@ -97,8 +112,26 @@ function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): 
       peer!.send(chunk, { binary: true });
       applyBackpressure(ws, peer!);
     } else {
-      // Peer not here yet — hold the bytes until pairing flushes them.
-      peerBuffer().push(chunk);
+      // Peer not here yet — hold the bytes until pairing flushes them, but bound it so
+      // a peer that never arrives can't grow the buffer without limit.
+      const buf = peerBuffer();
+      buf.push(chunk);
+      prePairBytes += chunk.length;
+      if (prePairBytes > MAX_PREPAIR_BYTES) {
+        // Clear the backlog BEFORE closing: ws.close() is async, and a peer that races
+        // in during the close window would otherwise flush this oversized buffer.
+        buf.length = 0;
+        prePairBytes = 0;
+        logger.warn(
+          `relay ${session.session_id}: ${role} buffered >${MAX_PREPAIR_BYTES}B with no ${otherRole} — closing session`,
+        );
+        try {
+          ws.close(1009, "peer never connected");
+        } catch {
+          /* socket already closing */
+        }
+        return;
+      }
     }
     if (DEBUG) {
       logger.info(
@@ -151,6 +184,25 @@ function onConnection(ws: WebSocket, session: Session, role: Role, ip: string): 
     flush(session.bufferToViewer, session.viewer);
     flush(session.bufferToAgent, session.agent);
     logger.info(`relay ${session.session_id}: PAIRED`);
+  }
+}
+
+/**
+ * Low-latency + dead-peer detection on the underlying TCP socket: disable Nagle so
+ * small RFB frames ship immediately (the agent already sets TCP_NODELAY on its end;
+ * this closes the remaining 40-200ms gap on the relay hop), and enable TCP keep-alive
+ * so a vanished peer is detected in ~30-60s instead of the OS default (often hours).
+ */
+function tuneSocket(ws: WebSocket): void {
+  // `ws._socket` is undocumented but stable since ws@3 (same idiom as the backpressure
+  // path); guarded so a not-yet-attached socket is just a no-op.
+  const sock = (ws as unknown as { _socket?: import("net").Socket })._socket;
+  if (!sock) return;
+  try {
+    sock.setNoDelay(true);
+    sock.setKeepAlive(true, 30_000);
+  } catch {
+    /* socket already closing */
   }
 }
 
