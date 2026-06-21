@@ -45,6 +45,12 @@ export const config = {
   sessionTtl: int("SESSION_TTL", 60),
   /** Informational tenant id stamped on enrolled devices. */
   tenantId: process.env.TENANT_ID ?? "default",
+  /**
+   * Optional pre-shared enrollment token. When set, `POST /enroll` requires a matching
+   * `enroll_token` (closing the open-enrollment hole); when empty, enrollment stays
+   * zero-touch/open so existing deployments keep working until a token is provisioned.
+   */
+  enrollToken: process.env.ENROLL_TOKEN ?? "",
 
   /** Postgres connection string used by Drizzle; required. */
   databaseUrl: required("DATABASE_URL"),

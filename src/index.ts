@@ -23,6 +23,7 @@ import path from "path";
 import express, { type RequestHandler } from "express";
 import { config } from "./config";
 import { logger } from "./log";
+import { sql } from "./db/client";
 import * as registry from "./registry";
 import { enrollHandler } from "./http/enroll";
 import { listDevicesHandler } from "./http/devices";
@@ -37,8 +38,26 @@ import { handleLogsUpgrade } from "./ws/logs";
 const app = express();
 app.disable("x-powered-by");
 // Behind EasyPanel/Traefik (or nginx/Caddy) the real client IP and scheme arrive in
-// X-Forwarded-* headers; trust them so req.ip and URL derivation are correct.
-if (config.trustProxy) app.set("trust proxy", true);
+// X-Forwarded-* headers. Trust exactly ONE proxy hop rather than blanket-trusting any
+// upstream: this keeps req.ip / scheme correct for a single fronting proxy while
+// preventing a direct client from spoofing X-Forwarded-For to evade the rate limiter.
+// (Behind N chained proxies, set TRUST_PROXY and bump this hop count accordingly.)
+app.set("trust proxy", config.trustProxy ? 1 : false);
+
+// Baseline security response headers. The CSP is intentionally limited to directives
+// that cannot break resource loading (clickjacking + base-tag + plugin hardening); a
+// full script/style/connect policy is a follow-up that needs noVNC viewer QA.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+  if (config.auth.cookieSecure) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 app.use(express.json({ limit: "256kb" }));
 
 const publicDir = path.join(__dirname, "..", "public");
@@ -125,10 +144,18 @@ server.listen(config.port, config.host, () => {
   if (config.publicUrl) logger.info(`  public URL:          ${config.publicUrl}`);
 });
 
+let shuttingDown = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
+    if (shuttingDown) return; // a second signal shouldn't restart teardown
+    shuttingDown = true;
     logger.info(`${signal} received — shutting down`);
-    server.close(() => process.exit(0));
-    setTimeout(() => process.exit(0), 2000).unref();
+    // Stop accepting connections, then close the DB pool so we exit cleanly instead of
+    // leaking the postgres sockets; a hard backstop guarantees we still exit if either
+    // close hangs.
+    server.close(() => {
+      sql.end({ timeout: 5 }).finally(() => process.exit(0));
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
   });
 }
