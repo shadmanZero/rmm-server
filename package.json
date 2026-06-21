@@ -6,22 +6,25 @@
   "license": "MIT",
   "scripts": {
     "vendor:novnc": "node scripts/vendor-novnc.js",
-    "build": "tsc -p .",
-    "prestart": "node scripts/vendor-novnc.js",
+    "build:css": "tailwindcss -i ./src/styles/app.css -o ./public/styles.css --minify",
+    "watch:css": "tailwindcss -i ./src/styles/app.css -o ./public/styles.css --watch",
+    "build": "npm run build:css && tsc -p .",
+    "prestart": "node scripts/vendor-novnc.js && npm run build:css",
     "start": "node dist/index.js",
-    "dev": "node scripts/vendor-novnc.js && tsx watch src/index.ts",
+    "dev": "node scripts/vendor-novnc.js && npm run build:css && tsx watch src/index.ts",
     "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "puppeteer-core": "^23.11.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@novnc/novnc": "^1.7.0",
+    "@tailwindcss/cli": "^4.3.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.2",
     "@types/ws": "^8.5.13",
+    "tailwindcss": "^4.3.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

@@ -51,12 +51,12 @@ function deviceCard(d) {
 
   card.innerHTML = `
     <div class="card__top">
-      <div>
+      <div class="min-w-0">
         <div class="card__name"></div>
         <div class="card__meta"></div>
       </div>
       <span class="status ${online ? "status--online" : "status--offline"}">
-        <span class="dot ${online ? "dot--ok" : ""}"></span>${online ? "online" : "offline"}
+        <span class="dot ${online ? "dot--ok" : ""}"></span>${online ? "Online" : "Offline"}
       </span>
     </div>
     <div class="card__specs">
@@ -64,11 +64,16 @@ function deviceCard(d) {
       <span class="tag">${escapeHtml(d.arch)}</span>
       <span class="tag">v${escapeHtml(d.agent_version)}</span>
       ${d.last_ip ? `<span class="tag">${escapeHtml(d.last_ip)}</span>` : ""}
-      ${d.active_session ? '<span class="tag">in session</span>' : ""}
+      ${d.active_session ? '<span class="tag text-warn border-warn/30">in session</span>' : ""}
     </div>
-    <button class="btn btn--primary" ${online ? "" : "disabled"}>
-      ${online ? "Connect" : "Offline"}
-    </button>
+    ${
+      online
+        ? `<button class="btn btn--primary" type="button">
+             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+             Connect
+           </button>`
+        : `<button class="btn btn--ghost w-full" type="button" disabled>Offline</button>`
+    }
   `;
 
   card.querySelector(".card__name").textContent = d.device_name || d.device_id;
