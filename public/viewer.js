@@ -156,6 +156,11 @@ async function start() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_id: deviceId, view_only: false }),
     });
+    if (res.status === 401) {
+      const next = encodeURIComponent(location.pathname + location.search);
+      location.replace(`/login.html?next=${next}`);
+      return;
+    }
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
     wsUrl = data.viewer_ws_url;

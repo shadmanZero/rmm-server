@@ -40,13 +40,20 @@
         </div>
       </div>
 
-      <div class="flex shrink-0 items-center gap-2">
-        <span id="conn-dot" class="dot dot--ok"></span>
-        <span
-          id="conn-text"
-          class="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-faint transition-colors sm:inline"
-          >Connected</span
-        >
+      <div class="flex shrink-0 items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span id="conn-dot" class="dot dot--ok"></span>
+          <span
+            id="conn-text"
+            class="hidden text-[11px] font-medium uppercase tracking-[0.14em] text-faint transition-colors sm:inline"
+            >Connected</span
+          >
+        </div>
+        <span class="hidden h-5 w-px bg-border sm:inline-block"></span>
+        <span id="account" class="hidden text-xs text-muted sm:inline"></span>
+        <button id="logout-btn" class="btn btn--ghost px-3 py-1.5 text-xs" type="button">
+          Sign out
+        </button>
       </div>
     </header>
 

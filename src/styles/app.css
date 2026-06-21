@@ -248,6 +248,25 @@
     @apply bg-danger;
   }
 
+  /* ---- Forms (login) --------------------------------------------------- */
+  .label {
+    @apply mb-1.5 block text-xs font-medium tracking-wide text-muted;
+  }
+  .field {
+    @apply w-full rounded-lg border border-border bg-surface-2 px-3.5 py-2.5
+      text-sm text-content placeholder:text-faint transition-colors duration-150;
+  }
+  .field:hover {
+    @apply border-border-strong;
+  }
+  .field:focus {
+    @apply border-accent/60 outline-none;
+  }
+  .form-error {
+    @apply rounded-lg border border-danger/40 bg-danger/10 px-3.5 py-2.5
+      text-sm text-danger;
+  }
+
   /* ---- Toast ----------------------------------------------------------- */
   .toast {
     @apply fixed bottom-6 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-xl

@@ -24,10 +24,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Bring over the compiled server, the (vendored) frontend, and the scripts.
+# Bring over the compiled server, the (vendored) frontend, the scripts, and the
+# SQL migrations (applied at startup by `node dist/db/migrate.js`).
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
 COPY --from=build /app/scripts ./scripts
+COPY --from=build /app/drizzle ./drizzle
 
 # EasyPanel/most platforms inject PORT; default to 4000. HOST 0.0.0.0 for containers.
 ENV HOST=0.0.0.0
@@ -38,5 +40,6 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=4s --start-period=5s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 || exit 1
 
-# Direct node invocation (skips npm lifecycle; noVNC is already vendored).
-CMD ["node", "dist/index.js"]
+# Apply any pending migrations, then start. Migrations are idempotent, so this is
+# safe on every boot; the server only starts once the schema is current.
+CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]

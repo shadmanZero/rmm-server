@@ -15,11 +15,46 @@ const els = {
   connHint: document.getElementById("connect-hint"),
   connDot: document.getElementById("conn-dot"),
   connText: document.getElementById("conn-text"),
+  account: document.getElementById("account"),
+  logoutBtn: document.getElementById("logout-btn"),
 };
+
+/** Send the operator to the login page, preserving where they were headed. */
+function toLogin() {
+  const next = encodeURIComponent(location.pathname + location.search);
+  location.replace(`/login.html?next=${next}`);
+}
+
+async function loadIdentity() {
+  try {
+    const res = await fetch("/auth/me", { cache: "no-store" });
+    if (res.status === 401) return toLogin();
+    if (!res.ok) return;
+    const { user } = await res.json();
+    if (user?.name) {
+      els.account.textContent = user.name;
+      els.account.classList.remove("hidden");
+    }
+  } catch (err) {
+    console.error("loadIdentity failed:", err);
+  }
+}
+
+async function logout() {
+  els.logoutBtn.disabled = true;
+  try {
+    await fetch("/auth/logout", { method: "POST" });
+  } catch (err) {
+    console.error("logout failed:", err);
+  } finally {
+    toLogin();
+  }
+}
 
 async function loadDevices() {
   try {
     const res = await fetch("/api/devices", { cache: "no-store" });
+    if (res.status === 401) return toLogin();
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const devices = await res.json();
     setControlPlaneStatus(true);
@@ -103,5 +138,7 @@ function escapeHtml(s) {
 }
 
 els.refreshBtn.addEventListener("click", loadDevices);
+els.logoutBtn.addEventListener("click", logout);
+loadIdentity();
 loadDevices();
 setInterval(loadDevices, POLL_MS);

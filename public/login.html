@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sign in · remote desktops</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='3' width='20' height='14' rx='2'/%3E%3Cpath d='M8 21h8M12 17v4'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="flex min-h-screen w-full flex-1 items-center justify-center px-5 py-10">
+      <div class="w-full max-w-sm">
+        <div class="mb-7 flex flex-col items-center gap-3 text-center">
+          <span
+            class="grid h-11 w-11 place-items-center rounded-xl border border-border-strong bg-surface-2 text-accent"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+            </svg>
+          </span>
+          <div class="space-y-1">
+            <h1 class="text-lg font-semibold tracking-tight">shadmanZero</h1>
+            <p class="text-sm text-muted">Sign in to the control plane</p>
+          </div>
+        </div>
+
+        <form
+          id="login-form"
+          class="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-6"
+          novalidate
+        >
+          <div id="error" class="form-error" hidden></div>
+
+          <div>
+            <label class="label" for="username">Username</label>
+            <input
+              id="username"
+              name="username"
+              class="field"
+              type="text"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              autofocus
+              required
+            />
+          </div>
+
+          <div>
+            <label class="label" for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              class="field"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+
+          <button id="submit" class="btn btn--primary mt-1" type="submit">Sign in</button>
+        </form>
+
+        <p class="mt-5 text-center text-xs text-faint">rackoona remote access control plane</p>
+      </div>
+    </main>
+
+    <script type="module" src="/login.js"></script>
+  </body>
+</html>
