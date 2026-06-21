@@ -27,7 +27,12 @@ export type ServerToAgent =
       view_only: boolean;
     }
   | { type: "stop_session"; session_id: string }
-  | { type: "set_privacy"; enable: boolean }
+  | {
+      type: "set_privacy";
+      enable: boolean;
+      /** Omitting this defaults to `true` at the agent — local input is blocked. Send `false` to opt out. */
+      block_input?: boolean;
+    }
   | { type: "rotate_token"; device_token: string }
   | { type: "config"; heartbeat_interval?: number; default_view_only?: boolean }
   | { type: "ping" };

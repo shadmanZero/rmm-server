@@ -80,10 +80,14 @@ function teardown() {
 
 async function setPrivacy(enable) {
   try {
+    // Privacy also locks the endpoint's local keyboard/mouse (`block_input`). Sent
+    // explicitly so intent is on the wire even if the server default changes; operators
+    // who need the local user to keep input can opt out via the agent env var
+    // RACKOONA_PRIVACY_BLOCK_INPUT=0 or by POSTing `{ block_input: false }`.
     const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/privacy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enable }),
+      body: JSON.stringify({ enable, block_input: true }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);

@@ -73,13 +73,28 @@ export function createSessionHandler(req: Request, res: Response): void {
 /**
  * `POST /api/devices/:deviceId/privacy` — toggle the endpoint's privacy screen.
  *
- * Body `{ enable: boolean }`. Blanks the device's physical display (with a banner)
- * while the viewer keeps the clean desktop; `enable:false` restores it. Independent
- * of the session lifecycle (the agent also auto-restores when the session ends).
+ * Body `{ enable: boolean, block_input?: boolean }`. Blanks the device's physical
+ * display (with a banner) while the viewer keeps the clean desktop; `enable:false`
+ * restores it. `block_input` additionally locks the local user's physical
+ * keyboard/mouse while engaged and **defaults to `true`** (send `false` to opt out).
+ * Independent of the session lifecycle (the agent also auto-restores when the session
+ * ends).
  */
 export function privacyHandler(req: Request, res: Response): void {
   const deviceId = String(req.params.deviceId ?? "").trim();
-  const enable = (req.body as Record<string, unknown> | undefined)?.enable === true;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const enable = body.enable === true;
+  // Default ON: privacy locks local input unless the caller explicitly opts out with a
+  // boolean `false`. Reject a non-boolean `block_input` so a caller's type mistake (e.g.
+  // `0` or `"false"`) can't silently leave input blocked when they meant to opt out.
+  const rawBlockInput = body.block_input;
+  if (rawBlockInput !== undefined && typeof rawBlockInput !== "boolean") {
+    res.status(400).json({
+      error: { code: "bad_request", message: "block_input must be a boolean" },
+    });
+    return;
+  }
+  const blockInput = rawBlockInput !== false;
 
   const device = registry.deviceById(deviceId);
   if (!device) {
@@ -91,14 +106,16 @@ export function privacyHandler(req: Request, res: Response): void {
     return;
   }
 
-  const delivered = sendToAgent(device, { type: "set_privacy", enable });
+  const delivered = sendToAgent(device, { type: "set_privacy", enable, block_input: blockInput });
   if (!delivered) {
     res.status(409).json({ error: { code: "device_offline", message: "control channel not writable" } });
     return;
   }
 
-  logger.info(`privacy ${enable ? "ON" : "OFF"} → ${device.device_name} (${device.device_id})`);
-  res.json({ ok: true, enable });
+  logger.info(
+    `privacy ${enable ? "ON" : "OFF"} (block_input=${blockInput}) → ${device.device_name} (${device.device_id})`,
+  );
+  res.json({ ok: true, enable, block_input: blockInput });
 }
 
 /** `POST /api/devices/:deviceId/disconnect` — ask the agent to end its session. */
