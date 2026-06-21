@@ -137,6 +137,10 @@ async function start() {
   rfb.scaleViewport = els.scaleToggle.checked;
   rfb.clipViewport = els.scaleToggle.checked;
   rfb.focusOnClick = true;
+  // Bandwidth is cheap now (Tight + dirty-rect tiling), so ask for sharper JPEG on
+  // photographic/video tiles; the agent's adaptive controller still backs quality
+  // down automatically under congestion. (Lossless text/UI tiles are unaffected.)
+  rfb.qualityLevel = 8;
 
   rfb.addEventListener("connect", () => {
     console.info("[viewer] noVNC connected (ServerInit received)");
