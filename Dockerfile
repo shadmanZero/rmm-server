@@ -13,6 +13,8 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 COPY public ./public
+# SQL migrations — carried through to the runtime image, applied on boot.
+COPY drizzle ./drizzle
 RUN npm run build && npm run vendor:novnc
 
 # ---------- runtime stage ----------
@@ -20,7 +22,8 @@ FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
-# Production deps only (express, ws) — small image, no toolchain.
+# Production deps only (express, ws, drizzle-orm, postgres, dotenv) — no toolchain.
+# The runtime migrator uses drizzle-orm directly, so drizzle-kit stays dev-only.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
