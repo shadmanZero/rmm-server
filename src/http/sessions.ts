@@ -70,6 +70,37 @@ export function createSessionHandler(req: Request, res: Response): void {
   });
 }
 
+/**
+ * `POST /api/devices/:deviceId/privacy` — toggle the endpoint's privacy screen.
+ *
+ * Body `{ enable: boolean }`. Blanks the device's physical display (with a banner)
+ * while the viewer keeps the clean desktop; `enable:false` restores it. Independent
+ * of the session lifecycle (the agent also auto-restores when the session ends).
+ */
+export function privacyHandler(req: Request, res: Response): void {
+  const deviceId = String(req.params.deviceId ?? "").trim();
+  const enable = (req.body as Record<string, unknown> | undefined)?.enable === true;
+
+  const device = registry.deviceById(deviceId);
+  if (!device) {
+    res.status(404).json({ error: { code: "device_not_found", message: "no such device" } });
+    return;
+  }
+  if (!device.online || !device.control) {
+    res.status(409).json({ error: { code: "device_offline", message: "device is offline" } });
+    return;
+  }
+
+  const delivered = sendToAgent(device, { type: "set_privacy", enable });
+  if (!delivered) {
+    res.status(409).json({ error: { code: "device_offline", message: "control channel not writable" } });
+    return;
+  }
+
+  logger.info(`privacy ${enable ? "ON" : "OFF"} → ${device.device_name} (${device.device_id})`);
+  res.json({ ok: true, enable });
+}
+
 /** `POST /api/devices/:deviceId/disconnect` — ask the agent to end its session. */
 export function disconnectHandler(req: Request, res: Response): void {
   const deviceId = String(req.params.deviceId ?? "").trim();

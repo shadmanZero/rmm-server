@@ -21,6 +21,7 @@ const els = {
   name: document.getElementById("viewer-name"),
   state: document.getElementById("viewer-state"),
   scaleToggle: document.getElementById("scale-toggle"),
+  privacyBtn: document.getElementById("privacy-btn"),
   cadBtn: document.getElementById("cad-btn"),
   disconnectBtn: document.getElementById("disconnect-btn"),
   toast: document.getElementById("toast"),
@@ -33,6 +34,7 @@ const els = {
 };
 
 let rfb = null;
+let privacyOn = false;
 
 // Network stats: install the WebSocket sniffer now, before noVNC opens its socket.
 const netStats = createNetStats();
@@ -68,6 +70,37 @@ function teardown() {
     }
     rfb = null;
   }
+}
+
+// --- Privacy screen ----------------------------------------------------------
+// Toggles the endpoint's blank-screen overlay: the remote machine shows "being
+// controlled" locally while we keep the clean desktop. The agent also auto-restores
+// when the session ends, so a stale ON state can't strand the owner.
+
+async function setPrivacy(enable) {
+  try {
+    const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/privacy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enable }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    privacyOn = enable;
+    reflectPrivacy();
+  } catch (err) {
+    showToast(`Privacy toggle failed: ${escapeHtml(String(err.message || err))}`, true);
+  }
+}
+
+function reflectPrivacy() {
+  els.privacyBtn.setAttribute("aria-pressed", privacyOn ? "true" : "false");
+  // Red while engaged = "active, click to restore"; ghost otherwise.
+  els.privacyBtn.classList.toggle("btn--ghost", !privacyOn);
+  els.privacyBtn.classList.toggle("btn--danger", privacyOn);
+  els.privacyBtn.title = privacyOn
+    ? "Privacy ON — the remote screen is blanked locally. Click to restore."
+    : "Blank the remote machine's physical screen (you still see the desktop)";
 }
 
 // --- Network stats HUD -------------------------------------------------------
@@ -156,6 +189,9 @@ async function start() {
     if (!clean) showToast("Connection closed by the remote end.", true);
     stopStats();
     rfb = null;
+    // The agent auto-restores the screen when the session ends; reflect that here.
+    privacyOn = false;
+    reflectPrivacy();
   });
   rfb.addEventListener("securityfailure", (e) => {
     setState("security failure", "bad");
@@ -171,6 +207,7 @@ function escapeHtml(s) {
 }
 
 els.disconnectBtn.addEventListener("click", goHome);
+els.privacyBtn.addEventListener("click", () => setPrivacy(!privacyOn));
 els.cadBtn.addEventListener("click", () => rfb && rfb.sendCtrlAltDel());
 els.scaleToggle.addEventListener("change", () => {
   if (rfb) {

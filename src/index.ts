@@ -20,7 +20,7 @@ import { logger } from "./log";
 import * as registry from "./registry";
 import { enrollHandler } from "./http/enroll";
 import { listDevicesHandler } from "./http/devices";
-import { createSessionHandler, disconnectHandler } from "./http/sessions";
+import { createSessionHandler, disconnectHandler, privacyHandler } from "./http/sessions";
 import { handleControlUpgrade } from "./ws/control";
 import { handleRelayUpgrade } from "./ws/relay";
 
@@ -36,6 +36,7 @@ app.post("/enroll", enrollHandler);
 app.post("/sessions", createSessionHandler);
 app.get("/api/devices", listDevicesHandler);
 app.post("/api/devices/:deviceId/disconnect", disconnectHandler);
+app.post("/api/devices/:deviceId/privacy", privacyHandler);
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
 // Static frontend (noVNC viewer). Vendored noVNC lives under public/vendor/novnc.
